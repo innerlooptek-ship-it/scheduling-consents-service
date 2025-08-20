@@ -1,0 +1,19 @@
+package com.cvshealth.digital.microservice.consents.enums;
+
+public enum QuestionnaireContextEnum {
+    KNOWLEDGE_CHECK,
+    SYMPTOM_SURVEY,
+    IMZ_ELIGIBILITY_QUESTION,
+    IMZ_SCREENING_QUESTION,
+    MC_CORE_ELIGIBILITY_QUESTION,
+    MHC_SCHEDULING_QUESTION,
+    MC_LEGAL_QUESTION,
+    MHC_LEGAL_QUESTION,
+    IMZ_LEGAL_QUESTION,
+    IMZ_ADDITIONAL_QUESTION,
+    IMZ_CANCEL_REASON,
+    HPI,
+    REVIEW,
+    CONSENT,
+    QUESTIONNAIRE
+}

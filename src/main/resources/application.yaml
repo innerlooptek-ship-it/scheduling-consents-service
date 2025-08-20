@@ -1,0 +1,67 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: scheduling-consents-service
+  
+  cassandra:
+    keyspace-name: iqe
+    contact-points: localhost
+    port: 9042
+    local-datacenter: datacenter1
+    schema-action: none
+    request:
+      timeout: 10s
+      consistency: local_quorum
+      serial-consistency: local_serial
+    connection:
+      connect-timeout: 5s
+      init-query-timeout: 5s
+
+  graphql:
+    graphiql:
+      enabled: true
+      path: /graphiql
+    path: /graphql
+    websocket:
+      path: /graphql
+
+logging:
+  level:
+    com.cvshealth.digital.microservice.consents: DEBUG
+    org.springframework.graphql: DEBUG
+    org.springframework.data.cassandra: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+custom:
+  scheduleEncryptDecryptKey: "dGVzdC1lbmNyeXB0aW9uLWtleS0xMjM0NTY3ODkwMTIzNDU2"
+
+feature:
+  live:
+    mcGroupScheduling: true
+    enableSchedulingConsents: true
+
+api:
+  configs:
+    consents:
+      getPatientConsents:
+        baseUrl: "http://localhost:8080"
+        uri: "/api/consents"
+        readTimeout: 5000
+        connectionTimeout: 3000
+        userName: "test-user"
+        password: "test-password"
+
+error:
+  messages:
+    getSchedulingConsents.NO_CONSENT_CONFIG: "No consent configuration found"
+    getSchedulingConsents.INVALID_FLOW: "Invalid flow provided"

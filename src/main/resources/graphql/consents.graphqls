@@ -1,0 +1,170 @@
+directive @extends on INTERFACE | OBJECT
+directive @external on FIELD_DEFINITION | OBJECT
+directive @key(fields: String!, resolvable: Boolean = true) repeatable on INTERFACE | OBJECT
+directive @requires(fields: String!) on FIELD_DEFINITION
+
+type Query {
+  getSchedulingConsents(id: String, idType: String, consentInput:SchedulingGetConsentInput!,profile:EnrollProfile): GetConsent
+}
+
+input EnrollProfile {
+    id : String
+    idType: EnrollProfileIdTypeEnum
+}
+
+enum EnrollProfileIdTypeEnum {
+  RETAIL_PROFILE_ID_TYPE
+}
+
+input SchedulingGetConsentInput {
+  flow: String
+  appointmentId: String
+  lob: String
+  modality: String
+  brand: String
+  clinicId: String
+  state: String
+  authType: String
+  consentsDataInput: [ConsentDataInput]
+  consentContextInput: [ConsentContextInput]
+}
+
+input ConsentDataInput {
+  patientReferenceId: String
+  dateOfBirth: String
+  consentContext: [String]
+  encMCPatientId: String
+  relation: String
+}
+
+input ConsentContextInput {
+    consentContext: String
+    summarize: Boolean
+}
+
+type GetConsent {
+  statusCode: String
+  statusDescription: String
+  consentsData: [GetConsentData]
+}
+
+type GetConsentData {
+  isSummarized: Boolean
+  patientReferenceId: String
+  consents: [ConsentDetails]
+}
+
+type ConsentDetails {
+  text: String
+  subText: String
+  consentType: String
+  consentContext: String
+  required: Boolean
+  consentId: String
+  consentName: ConsentsEnum
+  consentValue: Boolean
+  consentString: String
+  consentLink: String
+  consentLinkText: String
+  isHidden: Boolean
+  value: String
+  valueType: String
+  consentOptions: [ConsentDetails]
+  relatedConsent: [ConsentDetails]
+  consent: ConsentDetailsInfo
+  patientReferenceIds: [String]
+}
+
+type ConsentDetailsInfo {
+    type: String,
+    consents: [ConsentDetails]
+}
+
+enum ConsentsEnum {
+    isCSPrivacy
+    isCSShare
+    isCSTreat
+    isCSNonCovered
+    uninsuredProgramConsent
+    isDigitalVMConsent
+    isEmployeeConsent
+    isPhiDisclosure
+    isTCPAConsent
+    isPermissionToNotify
+    isConsentToTreatCOVID19
+    isHHSUninsuredProgramConsent
+    isCCOFConsent
+    isConsentToPayCashB2BHI
+    isConsentForInsuranceB2BHI
+    isVisConsent
+    isAetnaInsurance
+    vmPermissionsToNotify
+    vmGeneralConsent
+    vmCardOnFile
+    vmHIVConsentNY
+    vmBillOfRightsAZ
+    vmPHIDisclosure
+    vmEmailMarketing
+    vmIsMedicalInsurance
+    vmIsMedicaid
+    vmCCOFQuestion
+    vmEmailAddressCreditCard
+    vmPatientRelationshipIAm
+    vmPatientRelationshipName
+    vmNoticeOfPrivacyPractice
+    vmPatientRelationshipParent
+    vmPatientRelationshipLegalGuardian
+    vmPatientRelationshipAuthRepresentative
+    vmMinorAgeRestrictionAcknowledgement
+    vmOutstandingBalCCOFQuestion
+    vmOutstandingBalCCOFConsent
+    vmTCPAConsentMarketing
+    vmMedicareQuestion
+    vmMedicareConsent
+    vmNJIISConsent
+    vmBHMHCGeneralConsent
+    vmBHHIVConsentNY
+    vmBHBillOfRightsAZ
+    vmBHPHIDisclosure
+    vmBHEmailMarketing
+    vmBHIsMedicalInsurance
+    vmBHIsMedicamasterConsentIdPlan
+    vmBHNoticeOfPrivacyPractice
+    vmBHTCPAConsent
+    vmBHMedicareQuestion
+    vmBHMedicareConsent
+    vmBHPatientRelationshipIAm
+    vmBHPatientRelationshipName
+    vmBHPatientRelationshipParent
+    vmBHPatientRelationshipLegalGuardian
+    vmBHPatientRelationshipAuthRepresentative
+    vmBHPermissionToNotify
+    vmConsentSelfPay
+    vmTexasChildImmunizationRegistry
+    vmMothersFirstName
+    vmMothersMaidenName
+    vmEmailMarketing_vmTCPAConsentMarketing
+    vmMothersFirstName_vmMothersMaidenName
+    vmTexasAdultImmunizationRegistry
+    vmPaymentSelfPay
+    vmPaymentOption
+    vmBillOfRights
+    vmBillOfRightsNH
+    vmCombinedMinorMHCConsent
+    vmCombinedAdultMHCConsent
+    vmB2BEntitlementConsent
+    isTCPAConsent_isEmailMarketing_isTCPAConsentMarketing
+    isHIVConsentNY
+    isConsentToTreat
+    isMinorAgeRestrictionAcknowledgement
+    isBillOfRightsAZ
+    isPatientRelationshipIAm
+    patientRelationshipName
+    isPatientRelationshipAuthRepresentative
+    isNoticeOfPrivacyPractice
+    isNJIISConsent
+    isTexasAdultImmunizationRegistry
+    isTexasChildImmunizationRegistry
+    mothersFirstName_mothersMaidenName
+    isTCPAConsent_isEmailMarketing_isTCPAConsentMarketing_isDigitalVMConsent
+}
