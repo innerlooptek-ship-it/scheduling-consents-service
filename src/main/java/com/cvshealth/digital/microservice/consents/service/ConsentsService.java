@@ -1,27 +1,20 @@
 package com.cvshealth.digital.microservice.consents.service;
 
-import com.cvshealth.digital.microservice.consents.config.ConsentConfig;
-import com.cvshealth.digital.microservice.consents.config.DHSSchedulingConfigs;
-import com.cvshealth.digital.microservice.consents.config.GetConsentConfigLoader;
-import com.cvshealth.digital.microservice.consents.config.MessageConfig;
-import com.cvshealth.digital.microservice.consents.enums.*;
+import com.cvshealth.digital.microservice.consents.dto.ConsentRequest;
+import com.cvshealth.digital.microservice.consents.dto.ConsentResponse;
 import com.cvshealth.digital.microservice.consents.exception.CvsException;
-import com.cvshealth.digital.microservice.consents.mapper.GetConsentMapper;
 import com.cvshealth.digital.microservice.consents.model.GetConsent;
 import com.cvshealth.digital.microservice.consents.model.GetConsentInput;
-import com.cvshealth.digital.microservice.consents.dto.MCITGetPatientConsentsResponse;
-import com.cvshealth.digital.microservice.consents.utils.*;
+import com.cvshealth.digital.microservice.consents.model.ConsentData;
+import com.cvshealth.digital.microservice.consents.utils.LoggingUtils;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.cvshealth.digital.microservice.consents.constants.ConsentsConstants.*;
 
@@ -30,136 +23,124 @@ import static com.cvshealth.digital.microservice.consents.constants.ConsentsCons
 public class ConsentsService {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     
-    private final ValidatorConsentsService validatorConsentsService;
-    private final ConsentsMcitService mcitGetPatientConsentsService;
-    private final GetConsentConfigLoader getConsentConfigLoader;
-    private final GetConsentMapper getConsentMapper;
-    private final ConsentServiceHelper consentServiceHelper;
-    private final FeatureProperties featureProperties;
-    private final DHSSchedulingConfigs dhsSchedulingConfigs;
+    private final ConsentsRestService consentsRestService;
     private final LoggingUtils loggingUtils;
-    private final MessageConfig messageConfig;
 
     public Mono<GetConsent> getSchedulingConsents(String id, String idType, GetConsentInput consentInput, Map<String, Object> tags, Map<String, String> headerMap) throws CvsException {
-        logger.debug("Entering getSchedulingConsents method of ConsentsService....");
+        logger.debug("Entering getSchedulingConsents method of ConsentsService (GraphQL wrapper)....");
 
         Map<String,Object> eventMap = new HashMap<>();
         eventMap.putAll(tags);
         tags.put("eventMap", eventMap);
 
-        if(consentInput.getFlow().equalsIgnoreCase("VACCINE")) {
-            validatorConsentsService.validateGetConsentsForScheduling(consentInput, eventMap);
-            boolean isGroupAppointment = consentInput.getConsentsDataInput() != null && !CollectionUtils.isEmpty(consentInput.getConsentsDataInput()) && consentInput.getConsentsDataInput().size() > 1;
-
-            String lob = StringUtils.isNotBlank(consentInput.getLob()) ? consentInput.getLob().toUpperCase() : LobEnum.CLINIC.name();
-            String modality = StringUtils.isNotBlank(consentInput.getModality()) ? consentInput.getModality().toUpperCase() : ModalityEnum.BnMInPerson.name();
-            String brand = StringUtils.isNotBlank(consentInput.getBrand()) ? consentInput.getBrand().toUpperCase(): BrandEnum.MC.name();
-
-            return Flux.fromIterable(consentInput.getConsentsDataInput()).flatMap(consentDataInput -> {
-                        String patientId = null;
-                        try {
-                            patientId = CvsCrypto.decrypt(consentDataInput.getEncMCPatientId(), dhsSchedulingConfigs.getScheduleEncryptDecryptKey());
-                        } catch (Exception e) {
-                            tags.put("mrnEncryptionFailed", "true");
-                        }
-                        Mono<MCITGetPatientConsentsResponse> getPatientConsentsResponseMono = Mono.just(MCITGetPatientConsentsResponse.builder().build());
-                        if(StringUtils.isNotBlank(patientId)) {
-                            getPatientConsentsResponseMono =  mcitGetPatientConsentsService.getMCITPatientConsents(patientId, consentDataInput.getDateOfBirth(), consentInput.getLob(), consentInput.getState(), consentInput.getClinicId(), tags, headerMap);
-                        }
-
-                        return getPatientConsentsResponseMono.flatMap(mcitGetPatientConsentsResponse -> {
-                            boolean hasNopConsent = false;
-                            boolean hasNjiisConsent = false;
-                            if (mcitGetPatientConsentsResponse.getResponse() != null && mcitGetPatientConsentsResponse.getResponse().getStatusRec() != null && mcitGetPatientConsentsResponse.getResponse().getStatusRec().getStatusCode() == 0) {
-                                hasNopConsent = mcitGetPatientConsentsResponse.getResponse().getGetPatientConsent2021Response().getConsentAcknowledgementList().stream().anyMatch(consentAcknowledgement -> consentAcknowledgement.getConsentKey().equalsIgnoreCase("nop") && consentAcknowledgement.isAcknowledged());
-                                hasNjiisConsent = mcitGetPatientConsentsResponse.getResponse().getGetPatientConsent2021Response().getConsentAcknowledgementList().stream().anyMatch(consentAcknowledgement -> consentAcknowledgement.getConsentKey().equalsIgnoreCase("njiis") && consentAcknowledgement.isAcknowledged());
-                            }
-                            boolean isHidden = false;
-                            int age = DateUtilCustom.calculateAge(consentDataInput.getDateOfBirth());
-                            String authType = StringUtils.isNotBlank(consentInput.getAuthType()) ? consentInput.getAuthType().toUpperCase() : AuthTypeEnum.GUEST.name();
-                            if (AuthTypeEnum.LOA1.name().equalsIgnoreCase(authType) || AuthTypeEnum.LOA2.name().equalsIgnoreCase(authType) || (AuthTypeEnum.MFA.name().equalsIgnoreCase(authType) && age >= 18)) {
-                                isHidden = true;
-                            }
-                            String relation = null;
-                            if(StringUtils.isNotBlank(consentDataInput.getRelation())) {
-                                relation = ConsentRelationEnum.fromString(consentDataInput.getRelation()).getRelation();
-                            }
-
-                            Map<String, Object> variables = new HashMap<>();
-                            variables.put("state", StringUtils.isNotBlank(consentInput.getState()) ? consentInput.getState().toUpperCase() : null);
-                            variables.put("age", age);
-                            variables.put("relation", StringUtils.isNotBlank(relation) ? relation : ConsentRelationEnum.AUTH_REPRESENTATIVE.getRelation());
-                            variables.put("hasNopConsent", hasNopConsent);
-                            variables.put("hasNJIISConsent", hasNjiisConsent);
-                            variables.put("isHidden", isHidden);
-                            variables.put("isGroupAppointment", isGroupAppointment);
-
-                            String flow = consentInput.getFlow().toUpperCase();
-                            List<ConsentConfig> consentConfigList = new ArrayList<>(getConsentConfigLoader.getConsentDataMap().get(flow));
-
-                            ConsentConfig consents = consentConfigList.stream().filter(consentConfig -> {
-                                boolean isLobMatch = consentConfig.getLob().equalsIgnoreCase(lob);
-                                boolean isModalityMatch = consentConfig.getModality().equalsIgnoreCase(modality);
-                                boolean isBrandMatch = consentConfig.getBrand().equalsIgnoreCase(brand);
-                                return isLobMatch && isModalityMatch && isBrandMatch;
-                            }).findFirst().orElse(null);
-
-                            if (consentConfigList.isEmpty()) {
-                                eventMap.put("methodName", "getSchedulingConsents");
-                                eventMap.put(STATUS_CDE, BAD_REQUEST);
-                                eventMap.put(STATUS_MESSAGE, messageConfig.getMessages().get("getSchedulingConsents.NO_CONSENT_CONFIG"));
-                                eventMap.put(STATUS_DESC, "No consent configuration found for the provided flow, lob, modality and brand");
-                                loggingUtils.errorEventLogging(logger, eventMap);
-                                return Mono.error(new CvsException(HttpStatus.BAD_REQUEST.value(),
-                                        "NO_CONSENT_CONFIG", messageConfig.getMessages().get("getSchedulingConsents.NO_CONSENT_CONFIG"),
-                                        "No consent configuration found for the provided flow, lob, modality and brand", "NO_CONSENT_CONFIG"));
-                            }
-
-                            List<ConsentConfig.Consent> filteredConsents = consents.getConsents().stream()
-                                    .map(ConsentConfig.Consent::new)
-                                    .filter(consentData -> StringUtils.isNotBlank(consentData.getConsentContext())
-                                            && consentDataInput.getConsentContext().stream()
-                                            .anyMatch(context -> context.equalsIgnoreCase(consentData.getConsentContext())))
-                                    .map(consentData -> consentServiceHelper.filterConsents(consentData, variables))
-                                    .peek(consentData -> {
-                                        if (consentData != null && consentData.getConsentContext().equalsIgnoreCase(ConsentContextEnum.REVIEW.name()) && !isGroupAppointment) {
-                                            consentData.setSubText(null);
-                                        }
-                                    })
-                                    .filter(filteredConsent -> filteredConsent != null
-                                            && filteredConsent.getConsent() != null
-                                            && !CollectionUtils.isEmpty(filteredConsent.getConsent().getConsents()))
-                                    .toList();
-
-                            return Mono.just(getConsentMapper.toConsentData((ConsentConfig.builder().consents(filteredConsents).build()), consentDataInput.getPatientReferenceId()));
-                        });
-                    }).collectList()
-                    .flatMap(consentData -> {
-                        if (featureProperties.getLive().containsKey("mcGroupScheduling") && Boolean.TRUE.equals(featureProperties.getLive().get("mcGroupScheduling"))) {
-                            return Mono.just(consentServiceHelper.summarizeConsentsForGroup(consentData, consentInput));
-                        } else {
-                            return Mono.just(consentData);
-                        }
-                    })
-                    .flatMap(consentData -> {
-                        GetConsent getConsent = GetConsent.builder()
-                                .statusCode(SUCCESS_MSG)
-                                .statusDescription(SUCCESS_MSG)
-                                .consentsData(consentData)
-                                .build();
-                        return Mono.just(getConsent);
-                    } );
-
+        ConsentRequest restRequest = convertToRestRequest(consentInput);
+        
+        return consentsRestService.getConsents(restRequest, eventMap, headerMap)
+                .map(this::convertToGraphQLResponse)
+                .doOnSuccess(response -> logger.debug("Successfully converted REST response to GraphQL format"))
+                .doOnError(error -> {
+                    logger.error("Error in GraphQL wrapper service: {}", error.getMessage());
+                    eventMap.put("error", error.getMessage());
+                    loggingUtils.errorEventLogging(logger, eventMap);
+                });
+    }
+    
+    private ConsentRequest convertToRestRequest(GetConsentInput graphqlInput) {
+        List<ConsentRequest.Patient> patients = graphqlInput.getConsentsDataInput().stream()
+                .map(consentDataInput -> ConsentRequest.Patient.builder()
+                        .patientReferenceId(consentDataInput.getPatientReferenceId())
+                        .dateOfBirth(consentDataInput.getDateOfBirth())
+                        .patientId(consentDataInput.getEncMCPatientId())
+                        .relationshipToPatient(consentDataInput.getRelation())
+                        .build())
+                .collect(Collectors.toList());
+        
+        List<ConsentRequest.Context> contexts = graphqlInput.getConsentContextInput().stream()
+                .map(contextInput -> ConsentRequest.Context.builder()
+                        .name(contextInput.getConsentContext())
+                        .summarizeResults(contextInput.isSummarize())
+                        .build())
+                .collect(Collectors.toList());
+        
+        return ConsentRequest.builder()
+                .flow(graphqlInput.getFlow())
+                .lob(graphqlInput.getLob())
+                .modality(graphqlInput.getModality())
+                .brand(graphqlInput.getBrand())
+                .clinicId(graphqlInput.getClinicId())
+                .state(graphqlInput.getState())
+                .authType(graphqlInput.getAuthType())
+                .patients(patients)
+                .contexts(contexts)
+                .build();
+    }
+    
+    private GetConsent convertToGraphQLResponse(ConsentResponse restResponse) {
+        List<ConsentData> consentDataList = restResponse.getData().getGetSchedulingConsents().getConsentsData().stream()
+                .map(patientConsent -> {
+                    List<ConsentData.Consent> consents = patientConsent.getConsents().stream()
+                            .map(this::convertToGraphQLConsent)
+                            .collect(Collectors.toList());
+                    
+                    return ConsentData.builder()
+                            .patientReferenceId(patientConsent.getPatientReferenceId())
+                            .consents(consents)
+                            .build();
+                })
+                .collect(Collectors.toList());
+        
+        return GetConsent.builder()
+                .statusCode(restResponse.getData().getGetSchedulingConsents().getStatusCode())
+                .statusDescription(restResponse.getData().getGetSchedulingConsents().getStatusDescription())
+                .consentsData(consentDataList)
+                .build();
+    }
+    
+    private ConsentData.Consent convertToGraphQLConsent(ConsentResponse.ConsentContext restConsent) {
+        ConsentData.ConsentDetailsInfo consentDetails = null;
+        if (restConsent.getConsent() != null && restConsent.getConsent().getConsents() != null) {
+            List<ConsentData.Consent> nestedConsents = restConsent.getConsent().getConsents().stream()
+                    .map(this::convertToGraphQLConsentItem)
+                    .collect(Collectors.toList());
+            
+            consentDetails = ConsentData.ConsentDetailsInfo.builder()
+                    .type("combined")
+                    .consents(nestedConsents)
+                    .build();
         }
-        else {
-            eventMap.put("methodName", "getSchedulingConsents");
-            eventMap.put(STATUS_CDE, BAD_REQUEST);
-            eventMap.put(STATUS_MESSAGE, messageConfig.getMessages().get("getSchedulingConsents.INVALID_FLOW"));
-            eventMap.put(STATUS_DESC, "Invalid flow provided in request");
-            loggingUtils.errorEventLogging(logger, eventMap);
-            return Mono.error(new CvsException(HttpStatus.BAD_REQUEST.value(),
-                    "INVALID_FLOW", messageConfig.getMessages().get("getSchedulingConsents.INVALID_FLOW"),
-                    "Invalid flow provided in request","INVALID_FLOW"));
+        
+        return ConsentData.Consent.builder()
+                .text(restConsent.getText())
+                .consentContext(restConsent.getConsentContext())
+                .consent(consentDetails)
+                .build();
+    }
+    
+    private ConsentData.Consent convertToGraphQLConsentItem(ConsentResponse.ConsentItem restItem) {
+        ConsentData.ConsentDetailsInfo nestedConsent = null;
+        if (restItem.getConsent() != null && restItem.getConsent().getConsents() != null) {
+            List<ConsentData.Consent> nestedConsents = restItem.getConsent().getConsents().stream()
+                    .map(this::convertToGraphQLConsentItem)
+                    .collect(Collectors.toList());
+            
+            nestedConsent = ConsentData.ConsentDetailsInfo.builder()
+                    .type("related")
+                    .consents(nestedConsents)
+                    .build();
         }
+        
+        return ConsentData.Consent.builder()
+                .text(restItem.getText())
+                .subText(restItem.getSubText())
+                .consentType(restItem.getConsentType())
+                .required(restItem.getRequired())
+                .consentName(restItem.getConsentName())
+                .consentLink(restItem.getConsentLink())
+                .consentLinkText(restItem.getConsentLinkText())
+                .value(restItem.getValue())
+                .valueType(restItem.getValueType())
+                .isHidden(restItem.getIsHidden())
+                .consent(nestedConsent)
+                .build();
     }
 }
