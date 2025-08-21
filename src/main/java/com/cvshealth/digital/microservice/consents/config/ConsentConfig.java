@@ -1,5 +1,6 @@
 package com.cvshealth.digital.microservice.consents.config;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,6 +12,7 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ConsentConfig {
 
         private String lob;
@@ -22,6 +24,7 @@ public class ConsentConfig {
         @Builder
         @AllArgsConstructor
         @NoArgsConstructor
+        @JsonIgnoreProperties(ignoreUnknown = true)
         public static class Consent {
                 private String text;
                 private String subText;
@@ -71,6 +74,7 @@ public class ConsentConfig {
         @Builder
         @AllArgsConstructor
         @NoArgsConstructor
+        @JsonIgnoreProperties(ignoreUnknown = true)
         public static class ConsentDetailsInfo {
                 private String type;
                 private List<Consent> consents;

@@ -1,3 +1,4 @@
+
 package com.cvshealth.digital.microservice.consents.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -6,6 +7,7 @@ import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.FileCopyUtils;
@@ -39,13 +41,13 @@ public class GetConsentConfigLoader {
 
         String consentConfigPath = dhsSchedulingConfigs.getConsentsConfig();
 
-        File consentConfigFile = new File(consentConfigPath);
-        try (InputStream inputStream = new BufferedInputStream(new FileInputStream(consentConfigFile))) {
+        try (InputStream inputStream = new ClassPathResource("consents/consents_vaccine.json").getInputStream();) {
             byte[] bdata = FileCopyUtils.copyToByteArray(inputStream);
             String data = new String(bdata, StandardCharsets.UTF_8);
 
             List<ConsentConfig> consentConfigList = com.cvshealth.digital.microservice.consents.utils.DHSSchedulerUtils.fromJSON(
-                    data, new TypeReference<List<ConsentConfig>>() {});
+                    data, new TypeReference<List<ConsentConfig>>() {
+                    });
 
             logger.debug("Raw data {}", com.cvshealth.digital.microservice.consents.utils.DHSSchedulerUtils.toJSON(consentConfigList, true));
 

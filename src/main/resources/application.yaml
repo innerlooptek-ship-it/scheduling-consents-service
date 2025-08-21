@@ -32,7 +32,7 @@ management:
 
 custom:
   scheduleEncryptDecryptKey: "dGVzdC1lbmNyeXB0aW9uLWtleS0xMjM0NTY3ODkwMTIzNDU2"
-  consents-config: "src/main/resources/consents_vaccine.json"
+  consents-config: "consents/consents_vaccine.json"
   logHttpHeaders: true
 
 feature:
