@@ -1,9 +1,7 @@
 package com.cvshealth.digital.microservice.consents.config;
 
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import jakarta.annotation.PostConstruct;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,65 +18,66 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
-@AllArgsConstructor
 public class GetConsentConfigLoader {
 
-    /** The Constant CLASS_NAME. */
     private static final String CLASS_NAME = "GetConsentConfigLoader";
-
-    /** The Constant logger. */
     private static final Logger logger = LoggerFactory.getLogger(CLASS_NAME);
+
     @Autowired
     DHSSchedulingConfigs dhsSchedulingConfigs;
-    @Getter
-    Map<String, List<ConsentConfig>> consentDataMap;
 
     @Getter
-    Map<String, ConsentTempConfig> consentByContextMap;
+    private Map<String, List<ConsentConfig>> consentDataMap = Collections.emptyMap();
+
+    @Getter
+    private Map<String, ConsentTempConfig> consentByContextMap = Collections.emptyMap();
 
     @PostConstruct
-    private void cacheConsentConfigData(){ //building consent data
+    private void cacheConsentConfigData() {
         Map<String, List<ConsentConfig>> tempDataMap = new ConcurrentHashMap<>();
         Map<String, ConsentTempConfig> tempDataByContextMap = new ConcurrentHashMap<>();
-        dhsSchedulingConfigs.getConsentsConfig().forEach((key,value) ->{
 
-            File consentConfigNames = new File(value);
-            InputStream inputStream;
+        String consentConfigPath = dhsSchedulingConfigs.getConsentsConfig();
 
-            try {
-                inputStream = new BufferedInputStream(new FileInputStream(consentConfigNames));
-                byte[] bdata = FileCopyUtils.copyToByteArray(inputStream);
-                String data = new String(bdata, StandardCharsets.UTF_8);
-                // Load Consumer Configs from file
-                List<ConsentConfig> consentConfigList = com.cvshealth.digital.microservice.consents.utils.DHSSchedulerUtils.fromJSON(data, new TypeReference<List<ConsentConfig>>() {});
-                
-                logger.debug("Raw data {}", com.cvshealth.digital.microservice.consents.utils.DHSSchedulerUtils.toJSON(consentConfigList,true));
+        File consentConfigFile = new File(consentConfigPath);
+        try (InputStream inputStream = new BufferedInputStream(new FileInputStream(consentConfigFile))) {
+            byte[] bdata = FileCopyUtils.copyToByteArray(inputStream);
+            String data = new String(bdata, StandardCharsets.UTF_8);
 
-                if(consentConfigList != null && !consentConfigList.isEmpty()){
-                    tempDataMap.put(key,Collections.unmodifiableList(consentConfigList));
-                }
+            List<ConsentConfig> consentConfigList = com.cvshealth.digital.microservice.consents.utils.DHSSchedulerUtils.fromJSON(
+                    data, new TypeReference<List<ConsentConfig>>() {});
 
-                if(!CollectionUtils.isEmpty(consentConfigList)){
-                    consentConfigList.forEach(consentConfig -> {
-                        consentConfig.getConsents().forEach(consentConfig1 -> {
-                            consentConfig1.getConsent().getConsents().forEach(consentConfig2 -> {
-                                tempDataByContextMap.put(consentConfig2.getConsentName(),ConsentTempConfig.builder().consentContext(consentConfig1.getConsentContext()).consents(consentConfig2).build() );
-                            });
-                        });
-                    });
-                }
+            logger.debug("Raw data {}", com.cvshealth.digital.microservice.consents.utils.DHSSchedulerUtils.toJSON(consentConfigList, true));
 
-
-            } catch (FileNotFoundException e) {
-                logger.error("FileNotFoundException....", e);
-            } catch (IOException e) {
-                logger.error("IOException....", e);
+            if (consentConfigList != null && !consentConfigList.isEmpty()) {
+                tempDataMap.put("default", Collections.unmodifiableList(consentConfigList));
             }
 
-            logger.debug("Exiting postConstruct method of cacheConsentConfigData");
-        });
+            if (!CollectionUtils.isEmpty(consentConfigList)) {
+                consentConfigList.forEach(consentConfig -> {
+                    consentConfig.getConsents().forEach(consentConfig1 -> {
+                        consentConfig1.getConsent().getConsents().forEach(consentConfig2 -> {
+                            tempDataByContextMap.put(
+                                    consentConfig2.getConsentName(),
+                                    ConsentTempConfig.builder()
+                                            .consentContext(consentConfig1.getConsentContext())
+                                            .consents(consentConfig2)
+                                            .build()
+                            );
+                        });
+                    });
+                });
+            }
+
+        } catch (FileNotFoundException e) {
+            logger.error("FileNotFoundException....", e);
+        } catch (IOException e) {
+            logger.error("IOException....", e);
+        }
+
         consentDataMap = Collections.unmodifiableMap(tempDataMap);
         consentByContextMap = Collections.unmodifiableMap(tempDataByContextMap);
-    }
 
+        logger.debug("Exiting postConstruct method of cacheConsentConfigData");
+    }
 }

@@ -41,6 +41,6 @@ public class DHSSchedulingConfigs {
     private int imzStoreCancelGracePeriodInDays;
     private List<String> exclusionServices;
     private String imzClinicInfoSource;
-    private Map<String,String> consentsConfig;
+    private String consentsConfig;
 
 }

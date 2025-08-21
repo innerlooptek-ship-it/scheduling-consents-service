@@ -29,11 +29,10 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.boot:spring-boot-starter-graphql")
-    implementation("org.springframework.boot:spring-boot-starter-data-cassandra-reactive")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     
-    // Drools dependencies are not needed for the consent service
+    // Drools dependencies are not needed for the consent service anymore.
     // We'll use direct rule evaluation with MVEL expressions instead
     implementation("org.mvel:mvel2:2.4.14.Final")
     

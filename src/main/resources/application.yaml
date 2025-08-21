@@ -5,19 +5,7 @@ spring:
   application:
     name: scheduling-consents-service
   
-  cassandra:
-    keyspace-name: iqe
-    contact-points: localhost
-    port: 9042
-    local-datacenter: datacenter1
-    schema-action: none
-    request:
-      timeout: 10s
-      consistency: local_quorum
-      serial-consistency: local_serial
-    connection:
-      connect-timeout: 5s
-      init-query-timeout: 5s
+
 
   graphql:
     graphiql:
@@ -44,6 +32,8 @@ management:
 
 custom:
   scheduleEncryptDecryptKey: "dGVzdC1lbmNyeXB0aW9uLWtleS0xMjM0NTY3ODkwMTIzNDU2"
+  consents-config: "src/main/resources/consents_vaccine.json"
+  logHttpHeaders: true
 
 feature:
   live:
